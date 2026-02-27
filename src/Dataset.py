@@ -5,10 +5,10 @@ def BuildData(hits, eIndex, eLabels, eFeatures):
 
     nFeatures = hits[['x', 'y', 'z', 'r', 'phi']].values
 
-    x = torch.tensor(nFeatures)
+    x = torch.tensor(nFeatures, dtype=torch.float32)
     eIndex = torch.tensor(eIndex)
-    eAttributes = torch.tensor(eFeatures)
-    y = torch.tensor(eLabels)
+    eAttributes = torch.tensor(eFeatures, dtype=torch.float32)
+    y = torch.tensor(eLabels, dtype=torch.float32)
 
     data = Data(x=x, edge_index = eIndex, edge_attr = eAttributes, y=y)
 

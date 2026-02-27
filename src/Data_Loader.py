@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import os
 
@@ -11,5 +12,8 @@ def load_event(eventId, data_path):
     particles = pd.read_csv(fParticles)
 
     hits = hits.merge(truth[["hit_id", "particle_id"]], on = "hit_id", how = "left")
+
+    hits['r'] = np.sqrt(hits['x']**2 + hits['y']**2)
+    hits['phi'] = np.arctan2(hits['y'], hits['x'])
 
     return hits, particles
