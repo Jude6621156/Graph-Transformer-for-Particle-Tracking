@@ -40,7 +40,7 @@ def EvalEdges(model, data, eIdx, threshold = 0.5):
 def main():
     data_path = "../Data/RawData/train_1"
     eventId = "event000001000"
-    K = 4
+    K = 6
     SampleHits = 5000
     epochs = 25
     LR = 1e-3
@@ -50,10 +50,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     hits, _ =load_event(eventId, data_path)
-    hits = hits.sample(SampleHits, random_state=Seed).reset_index(drop=True)
+    SampleNum = min(SampleHits, len(hits))
+    hits = hits.sample(SampleNum, random_state=Seed).reset_index(drop=True)
 
-    eIndex, eAttribute, eLabels = BuildGraphKnn(hits, k=K)
-    data = BuildData(hits, eIndex, eAttribute, eLabels).to(device)
+    eIndex, eLabels, eAttribute= BuildGraphKnn(hits, k=K)
+
+    E = eLabels.shape[0]
+    data = BuildData(hits, eIndex, eLabels, eAttribute).to(device)
 
     trainIdx, valIdx = SplitEdges(data.y.numel(), val_frac = ValFrac, seed = Seed)
     trainIdx = torch.tensor(trainIdx, dtype=torch.long, device=device)
@@ -63,7 +66,8 @@ def main():
     eDim = data.edge_attr.size(1)
     model = EdgeClassifier(InChannel = NodeDim, HiddenChannel=64, eFeaturesSize = eDim).to(device)
 
-    WeightPos = WeightBalance(data.y[trainIdx]).to(device)
+    WeightValue = WeightBalance(data.y[trainIdx]).item()
+    WeightPos = torch.tensor(min(WeightValue, 50.0), dtype=torch.float32, device=device)
     criterion = torch.nn.BCEWithLogitsLoss(pos_weight=WeightPos)
     optimiser = torch.optim.Adam(model.parameters(), lr=LR)
 
