@@ -36,6 +36,29 @@ def EvalEdges(model, data, eIdx, threshold = 0.5):
 
     return prec, rec, f1
 
+def NegativeSampling( y, neg_ratio=10, seed=42,device='cpu'):
+    g = torch.Generator(device="cpu")
+    g.manual_seed(seed)
+
+    PosIdx = torch.where(y==1)[0]
+    NegIdx = torch.where(y==0)[0]
+
+    PosNum = PosIdx.numel()
+    NegNum = NegIdx.numel()
+
+    if PosNum == 0:
+        raise ValueError("No positive edges.")
+
+    NegSample = min(neg_ratio * PosNum, NegNum)
+
+    perm = torch.randperm(NegNum, generator=g)[:NegSample]
+    NegSample = NegIdx[perm]
+
+    trainIdx = torch.cat([PosIdx, NegSample])
+    trainIdx = trainIdx[torch.randperm(trainIdx.numel(), generator=g)]
+
+    return trainIdx.to(device)
+
 
 def main():
     data_path = "../Data/RawData/train_1"
@@ -53,22 +76,24 @@ def main():
     SampleNum = min(SampleHits, len(hits))
     hits = hits.sample(SampleNum, random_state=Seed).reset_index(drop=True)
 
-    eIndex, eLabels, eAttribute= BuildGraphKnn(hits, k=K)
+    eIndex, eLabels, eAttribute= BuildGraphKnn(hits, k=K, exOutward=True)
 
     E = eLabels.shape[0]
     data = BuildData(hits, eIndex, eLabels, eAttribute).to(device)
 
-    trainIdx, valIdx = SplitEdges(data.y.numel(), val_frac = ValFrac, seed = Seed)
-    trainIdx = torch.tensor(trainIdx, dtype=torch.long, device=device)
-    valIdx = torch.tensor(valIdx, dtype=torch.long, device=device)
+    #trainIdx, valIdx = SplitEdges(data.y.numel(), val_frac = ValFrac, seed = Seed)
+    trainIdx = NegativeSampling(data.y, neg_ratio=10, seed=Seed, device=device)
+    valIdx = torch.arange(data.y.numel(), device=device)
+    #trainIdx = torch.tensor(trainIdx, dtype=torch.long, device=device)
+    #valIdx = torch.tensor(valIdx, dtype=torch.long, device=device)
 
     NodeDim = data.x.size(1)
     eDim = data.edge_attr.size(1)
     model = EdgeClassifier(InChannel = NodeDim, HiddenChannel=64, eFeaturesSize = eDim).to(device)
 
-    WeightValue = WeightBalance(data.y[trainIdx]).item()
-    WeightPos = torch.tensor(min(WeightValue, 50.0), dtype=torch.float32, device=device)
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=WeightPos)
+    #WeightValue = WeightBalance(data.y[trainIdx]).item()
+    #WeightPos = torch.tensor(min(WeightValue, 50.0), dtype=torch.float32, device=device)
+    criterion = torch.nn.BCEWithLogitsLoss()
     optimiser = torch.optim.Adam(model.parameters(), lr=LR)
 
     for e in range(1, epochs+1):
