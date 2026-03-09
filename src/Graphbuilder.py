@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.neighbors import NearestNeighbors
 
-def BuildGraphKnn(hits, k=8,exOutward = False):
+def BuildGraphKnn(hits, k=8,exOutward = False, maxLayerJump = 1, maxAbsDphi=None, maxAbsDzOverDr=None):
     n = len(hits)
     if n == 0:
         return (np.empty((2, 0), dtype=np.int64), np.empty((0,), dtype=np.int64), np.empty((0, 6), dtype=np.float32))
@@ -29,7 +29,7 @@ def BuildGraphKnn(hits, k=8,exOutward = False):
             if i == j:
                 continue
 
-            if abs(layer[j] - layer[i]) > 1:
+            if abs(layer[j] - layer[i]) > maxLayerJump:
                 continue
             if (r[j] <= r[i]) and exOutward:
                 continue
@@ -41,6 +41,15 @@ def BuildGraphKnn(hits, k=8,exOutward = False):
             dr = r[j] - r[i]
             dphi = phi[j] - phi[i]
             dphi = np.arctan2(np.sin(dphi), np.cos(dphi))
+
+            if (maxAbsDphi is not None) and (abs(dphi) > maxAbsDphi):
+                continue
+
+            if maxAbsDzOverDr is not None:
+                if abs(dr) < 1e-6:
+                    continue
+                if abs(dz/dr)>maxAbsDzOverDr:
+                    continue
 
             eucD = np.sqrt(dx**2 + dy**2 + dz**2)
 
