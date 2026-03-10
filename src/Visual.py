@@ -25,7 +25,7 @@ def loadModel(model_path, node_dim, edge_dim, device):
     model.eval()
     bestThreshold = 0.5
     if isinstance(cp, dict):
-        bestThreshold = cp.get("best threshold", cp.get("threshold", 0.5))
+        bestThreshold = cp.get("best threshold", cp.get("best_threshold", 0.5))
 
     return model, bestThreshold, cp
 
@@ -105,8 +105,8 @@ def main():
 
     SampleHits = 1500
     Seed = 42
-    threshold = 0.9
-    minSize = 3
+    threshold = 0.4
+    minSize = 1
 
     default_graph_conf = {"k": 6, "exOutward":True, "maxLayerJump": 1, "maxAbsDphi": 0.4, "maxAbsDzOverDr": 6.0}
 
@@ -121,7 +121,7 @@ def main():
     hits, data, eIndex = buildEventGraph(eventId, data_path, SampleHits, graph_conf, device, seed=Seed)
 
     model, cp_threshold, cp_meta= loadModel(model_path, data.x.size(1), data.edge_attr.size(1), device=device)
-    threshold = cp_threshold
+    threshold = 0.4
 
     probs = predEdge(model, data)
 
