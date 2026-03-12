@@ -142,10 +142,10 @@ def main():
     NumValEvents = 50
     SampleHitsPerEvent = 3000
 
-    K = 6
+    K = 8
     epochs = 50
     LR = 5e-4
-    HardFrac = 0.1
+    HardFrac = 0.3
     Thresholds = [0.3, 0.5, 0.7, 0.8, 0.9]
     NegRatio = 5
     Seed = 42
@@ -183,9 +183,6 @@ def main():
     eDim = trainData[0].edge_attr.size(1)
     model = EdgeClassifier(InChannel = NodeDim, HiddenChannel=64, eFeaturesSize = eDim).to(device)
 
-    #posTotal = sum(int((d.y==1).sum().item())for d in trainData)
-    #negTotal = sum(int((d.y==0).sum().item())for d in trainData)
-    #pw = max(1.0, negTotal/max(1, posTotal))
     criterion = torch.nn.BCEWithLogitsLoss()
     optimiser = torch.optim.Adam(model.parameters(), lr=LR)
 
