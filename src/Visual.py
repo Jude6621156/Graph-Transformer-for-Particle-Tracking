@@ -162,7 +162,7 @@ def main():
     hits, data, eIndex = buildEventGraph(eventId, data_path, SampleHits, graph_conf, device, seed=Seed)
 
     model, cp_threshold, cp_meta= loadModel(model_path, data.x.size(1), data.edge_attr.size(1), device=device)
-    threshold = 0.3
+    threshold = 0.2
 
     probs = predEdge(model, data)
 
