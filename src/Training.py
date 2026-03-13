@@ -142,7 +142,7 @@ def main():
     NumValEvents = 50
     SampleHitsPerEvent = 3000
 
-    K = 8
+    K = 16
     epochs = 50
     LR = 5e-4
     HardFrac = 0.3
@@ -152,7 +152,7 @@ def main():
     maxAbsDphi = 0.4
     maxAbsDzOverDr = 6.0
 
-    graph_conf = {"k": K, "exOutward":True, "maxLayerJump": 1, "maxAbsDphi": 0.4, "maxAbsDzOverDr": 6.0}
+    graph_conf = {"k": K, "exOutward":True, "maxLayerJump": 2, "maxAbsDphi": 0.6, "maxAbsDzOverDr": 8.0}
 
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
