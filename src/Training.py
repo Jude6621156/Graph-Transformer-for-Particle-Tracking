@@ -215,7 +215,17 @@ def main():
         if bestEpoch['f1']>best['f1']:
             best = {'epoch': e, **bestEpoch}
 
-            torch.save({"seed": Seed, "train_events": TrainEvents, "val_events": ValEvents,"epoch": best['epoch'], "model_state_dict": model.state_dict(), "precision": best['precision'], "recall": best['recall'], "f1": best['f1'], "best_threshold": best['threshold'], "graph_conf": graph_conf}, model_path)
+            torch.save({"seed": Seed,
+                        "train_events": TrainEvents,
+                        "val_events": ValEvents,
+                        "epoch": best['epoch'],
+                        "model_state_dict": model.state_dict(),
+                        "precision": best['precision'],
+                        "recall": best['recall'],
+                        "f1": best['f1'],
+                        "best_threshold": best['threshold'],
+                        "graph_conf": graph_conf},
+                       model_path)
             print(f"Saved model: {model_path}")
 
         print(f"Epoch {e:02d} | loss={EpochLoss/len(trainData):.4f} | "f"val_precision={bestEpoch['precision']:.3f} "f"val_recall = {bestEpoch[f'recall']:.3f}" f"val_f1={bestEpoch['f1']:.3f}" f"| best_t={bestEpoch['threshold']:.2f}")
