@@ -2,90 +2,14 @@ from src.Data_Loader import load_event
 from src.Dataset import BuildData
 from src.Models import EdgeClassifier
 from src.Graphbuilder import BuildGraphKnn
+from src.Pipeline import getEvents, buildEventData, fitEdgeNorm, applyEdgeNorm, sweepThresholds
+from src.Models import EdgeClassifier
+from src.Checkpoints import saveCheckpoint
 
 import numpy as np
 from sklearn.metrics import precision_score, recall_score, f1_score
 import torch
 from pathlib import Path
-
-def getEventId(data_path):
-    hit_files = sorted(Path(data_path).glob("event*-hits.csv"))
-    return [p.stem.replace("-hits", "") for p in hit_files]
-
-def getEvents(data_path, n_train, n_val, seed=42):
-    eventIds = getEventId(data_path)
-    need = n_train + n_val
-    if len(eventIds) < need:
-        raise ValueError(f"Requested {need} events, found only {len(eventIds)} in {data_path}")
-
-    r = np.random.default_rng(seed)
-    perm = r.permutation(len(eventIds))
-    chosen = [eventIds[i] for i in perm[:need]]
-
-    train_events = chosen[:n_train]
-    val_events = chosen[n_train:n_train+n_val]
-    return train_events, val_events
-
-def buildEventData(event_id, data_path, sample_hits, graph_conf, device, seed):
-    hits, _ = load_event(event_id, str(data_path))
-    n = min(sample_hits, len(hits))
-    hits = hits.sample(n, random_state=seed).reset_index(drop=True)
-
-    eIndex, eLabels, eAttributes = BuildGraphKnn(hits, **graph_conf)
-
-    if len(eLabels) == 0:
-        print(f"Skipping {event_id}: no edges after graph build")
-        return None
-
-    pos = int(np.sum(eLabels))
-    if pos == 0:
-        print(f"Skipping event {event_id}, no poisitve edges")
-        return None
-
-    pos_ratio = float(np.mean(eLabels))
-    print(f"{event_id}: edges={len(eLabels)} pos={pos} pos_ratio={pos_ratio}")
-
-    return BuildData(hits, eIndex, eLabels, eAttributes).to(device)
-
-def WeightBalance(labels: torch.Tensor):
-    pos = labels.sum().item()
-    neg = labels.numel() - pos
-    if pos == 0:
-        return torch.tensor(1.0)
-    return torch.tensor(neg/pos)
-
-def SplitEdges(eNum, val_frac = 0.2, seed=42):
-    rng = np.random.default_rng(seed)
-    ids = np.arange(eNum)
-    rng.shuffle(ids)
-    split = int((1 - val_frac)*eNum)
-    return ids[:split], ids[split:]
-
-@torch.no_grad()
-def EvalEdges(model, data, threshold = 0.5):
-    model.eval()
-
-    yTrues = []
-    yPreds = []
-
-    for j in data:
-        logits = model(j.x, j.edge_index, j.edge_attr).squeeze(-1)
-        prob = torch.sigmoid_(logits)
-
-        yPred = (prob>=threshold).cpu().numpy().astype(int)
-        yTrue = j.y.cpu().numpy().astype(int)
-
-        yTrues.append(yTrue)
-        yPreds.append(yPred)
-
-    yTrues = np.concatenate(yTrues)
-    yPreds = np.concatenate(yPreds)
-
-    prec = precision_score(yTrues, yPreds, zero_division=0)
-    rec = recall_score(yTrues, yPreds, zero_division=0)
-    f1 = f1_score(yTrues, yPreds, zero_division=0)
-
-    return prec, rec, f1
 
 def NegativeSampling( y, neg_ratio=10, seed=42,device='cpu', logits = None, HardFrac = 0.5):
     g = torch.Generator(device="cpu")
@@ -138,39 +62,46 @@ def main():
     model_path = project_root/"results"/"best_model.pt"
     model_path.parent.mkdir(parents=True, exist_ok=True)
 
-    NumTrainEvents = 50
-    NumValEvents = 50
-    SampleHitsPerEvent = 3000
-
-    K = 16
-    epochs = 50
-    LR = 5e-4
-    HardFrac = 0.3
-    Thresholds = [0.3, 0.5, 0.7, 0.8, 0.9]
-    NegRatio = 5
-    Seed = 42
-    maxAbsDphi = 0.4
-    maxAbsDzOverDr = 6.0
-
-    graph_conf = {"k": K, "exOutward":True, "maxLayerJump": 2, "maxAbsDphi": 0.6, "maxAbsDzOverDr": 8.0}
-
+    conf = {
+    "NumTrainEvents": 100,
+    "NumValEvents": 100,
+    "SampleHitsPerEvent": 5000,
+    "epochs": 100,
+    "LR": 5e-4,
+    "HardFrac": 0.3,
+    "Thresholds": np.linspace(0.1, 0.9, 17),
+    "NegRatio": 5,
+    "Seed": 42,
+    "graph_conf": {
+        "k": 16,
+        "exOutward": True,
+        "maxLayerJump": 2,
+        "maxAbsDphi": 0.6,
+        "maxAbsDzOverDr": 8.0,
+    }
+    }
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    TrainEvents, ValEvents = getEvents(data_path=data_path, n_train=NumTrainEvents, n_val=NumValEvents, seed=Seed)
+    TrainEvents, ValEvents = getEvents(data_path=data_path,
+                                       n_train=conf["NumTrainEvents"],
+                                       n_val=conf["NumValEvents"],
+                                       seed=conf["Seed"])
 
     print("Train Events:", TrainEvents)
     print("Val Events:", ValEvents)
 
     trainData = []
     for i, j in enumerate(TrainEvents):
-        d = buildEventData(j, data_path, SampleHitsPerEvent, graph_conf, device, seed=Seed+i)
+        d, out = buildEventData(j, conf["SampleHitsPerEvent"], data_path, conf["graph_conf"], device, seed=conf["Seed"]+i)
+        print(out)
         if d is not None:
             trainData.append(d)
 
     valData = []
     for i, j in enumerate(ValEvents):
-        d = buildEventData(j, data_path, SampleHitsPerEvent, graph_conf, device, seed=Seed + 100 + i)
+        d, out = buildEventData(j, conf["SampleHitsPerEvent"], data_path, conf["graph_conf"], device, seed=conf["Seed"] + 100 + i)
+        print(out)
         if d is not None:
             valData.append(d)
 
@@ -179,58 +110,61 @@ def main():
     if len(valData) == 0:
         raise ValueError("No usable validation events.")
 
-    NodeDim = trainData[0].x.size(1)
-    eDim = trainData[0].edge_attr.size(1)
+    edge_attr_mean, edge_attr_std = fitEdgeNorm(trainData)
+    applyEdgeNorm(trainData, edge_attr_mean, edge_attr_std)
+    applyEdgeNorm(valData, edge_attr_mean, edge_attr_std)
+
+    NodeDim = trainData[0]["data"].x.size(1)
+    eDim = trainData[0]["data"].edge_attr.size(1)
     model = EdgeClassifier(InChannel = NodeDim, HiddenChannel=64, eFeaturesSize = eDim).to(device)
 
     criterion = torch.nn.BCEWithLogitsLoss()
-    optimiser = torch.optim.Adam(model.parameters(), lr=LR)
+    optimiser = torch.optim.Adam(model.parameters(), lr=conf["LR"])
 
     best = {"epoch": 0, "f1": -1.0, "precision": 0.0, "recall": 0.0, "threshold": 0.5}
 
-    for e in range(1, epochs+1):
+    for e in range(1, conf["epochs"]+1):
         model.train()
         EpochLoss = 0.0
         for i, j in enumerate(trainData):
             optimiser.zero_grad()
 
-            logits = model(j.x, j.edge_index, j.edge_attr).squeeze(-1)
+            data = j['data']
+            logits = model(data.x, data.edge_index, data.edge_attr).squeeze(-1)
 
-            trainIdx = NegativeSampling(j.y, neg_ratio=NegRatio, seed=Seed + (e*1000)+i, device=device, logits=logits if HardFrac>0 else None,
-                                        HardFrac=HardFrac)
+            trainIdx = NegativeSampling(data.y, neg_ratio=conf["NegRatio"], seed=conf["Seed"] + (e*1000)+i, device=device, logits=logits if conf["HardFrac"]>0 else None,
+                                        HardFrac=conf["HardFrac"])
 
-            loss = criterion(logits[trainIdx], j.y[trainIdx])
+            loss = criterion(logits[trainIdx], data.y[trainIdx])
 
             loss.backward()
             optimiser.step()
 
             EpochLoss +=loss.item()
 
-        bestEpoch = {"f1": -1.0, "precision": 0.0, "recall": 0.0, "threshold": 0.5}
-        for t in Thresholds:
-            prec, rec, f1 = EvalEdges(model, valData, threshold=t)
-            if f1>bestEpoch['f1']:
-                bestEpoch = {"f1": f1, "precision": prec, "recall": rec, "threshold": t}
-
-        if bestEpoch['f1']>best['f1']:
-            best = {'epoch': e, **bestEpoch}
-
-            torch.save({"seed": Seed,
-                        "train_events": TrainEvents,
-                        "val_events": ValEvents,
-                        "epoch": best['epoch'],
-                        "model_state_dict": model.state_dict(),
-                        "precision": best['precision'],
-                        "recall": best['recall'],
-                        "f1": best['f1'],
-                        "best_threshold": best['threshold'],
-                        "graph_conf": graph_conf},
-                       model_path)
+        bestEpoch = sweepThresholds(model, valData, conf["Thresholds"])
+        if best["f1"]<bestEpoch['f1']:
+            best = {"epoch": e, **bestEpoch}
+            saveCheckpoint(
+                model_path,
+                model,
+                best,
+                conf["graph_conf"],
+                TrainEvents,
+                ValEvents,
+                edge_attr_mean,
+                edge_attr_std
+            )
             print(f"Saved model: {model_path}")
 
-        print(f"Epoch {e:02d} | loss={EpochLoss/len(trainData):.4f} | "f"val_precision={bestEpoch['precision']:.3f} "f"val_recall = {bestEpoch[f'recall']:.3f}" f"val_f1={bestEpoch['f1']:.3f}" f"| best_t={bestEpoch['threshold']:.2f}")
+        print(
+             f"Epoch {e:02d} | loss={EpochLoss/len(trainData):.4f} |"
+             f"val_precision={bestEpoch['precision']:.3f} "
+             f"val_recall = {bestEpoch[f'recall']:.3f}" 
+             f"val_f1={bestEpoch['f1']:.3f}" 
+             f"| best_t={bestEpoch['threshold']:.2f}")
     print(f"Best epoch={best['epoch']} | precision={best['precision']:.3f}"
-          f"recall={best['recall']:.3f} f1={best['f1']:.3f} threshold={best['threshold']:.2f}")
+           f"recall={best['recall']:.3f} f1={best['f1']:.3f} threshold={best['threshold']:.2f}")
 
 
 if __name__ == "__main__":
