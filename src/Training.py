@@ -1,13 +1,8 @@
-from src.Data_Loader import load_event
-from src.Dataset import BuildData
 from src.Models import EdgeClassifier
-from src.Graphbuilder import BuildGraphKnn
 from src.Pipeline import getEvents, buildEventData, fitEdgeNorm, applyEdgeNorm, sweepThresholds
-from src.Models import EdgeClassifier
 from src.Checkpoints import saveCheckpoint
 
 import numpy as np
-from sklearn.metrics import precision_score, recall_score, f1_score
 import torch
 from pathlib import Path
 
@@ -72,6 +67,7 @@ def main():
     "Thresholds": np.linspace(0.1, 0.9, 17),
     "NegRatio": 5,
     "Seed": 42,
+    "HiddenChannel": 64,
     "graph_conf": {
         "k": 16,
         "exOutward": True,
@@ -116,7 +112,7 @@ def main():
 
     NodeDim = trainData[0]["data"].x.size(1)
     eDim = trainData[0]["data"].edge_attr.size(1)
-    model = EdgeClassifier(InChannel = NodeDim, HiddenChannel=64, eFeaturesSize = eDim).to(device)
+    model = EdgeClassifier(InChannel = NodeDim, HiddenChannel=conf['HiddenChannel'], eFeaturesSize = eDim).to(device)
 
     criterion = torch.nn.BCEWithLogitsLoss()
     optimiser = torch.optim.Adam(model.parameters(), lr=conf["LR"])
@@ -152,6 +148,9 @@ def main():
                 conf["graph_conf"],
                 TrainEvents,
                 ValEvents,
+                conf["SampleHitsPerEvent"],
+                conf["Seed"],
+                conf["HiddenChannel"],
                 edge_attr_mean,
                 edge_attr_std
             )
@@ -159,10 +158,10 @@ def main():
 
         print(
              f"Epoch {e:02d} | loss={EpochLoss/len(trainData):.4f} |"
-             f"val_precision={bestEpoch['precision']:.3f} "
-             f"val_recall = {bestEpoch[f'recall']:.3f}" 
-             f"val_f1={bestEpoch['f1']:.3f}" 
-             f"| best_t={bestEpoch['threshold']:.2f}")
+             f"val_precision={bestEpoch['precision']:.3f} | "
+             f"val_recall = {bestEpoch[f'recall']:.3f} | " 
+             f"val_f1={bestEpoch['f1']:.3f} | " 
+             f"best_t={bestEpoch['threshold']:.2f}")
     print(f"Best epoch={best['epoch']} | precision={best['precision']:.3f}"
            f"recall={best['recall']:.3f} f1={best['f1']:.3f} threshold={best['threshold']:.2f}")
 
