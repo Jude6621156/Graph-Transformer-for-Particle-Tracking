@@ -1,7 +1,4 @@
-from src.Data_Loader import load_event
-from src.Dataset import BuildData
 from src.Models import EdgeClassifier
-from src.Graphbuilder import BuildGraphKnn
 from src.Pipeline import buildEventData, applyEdgeNorm
 from src.Checkpoints import loadCheckpoint
 
@@ -53,7 +50,7 @@ def predEdges(hits, chosen_edges, title="Predicted Edges"):
     plt.axis("equal")
     plt.show()
 
-def plotCompnents(hits, components, title = "Connected Components"):
+def plotComponents(hits, components, title = "Connected Components"):
     x = hits["x"].to_numpy()
     y = hits["y"].to_numpy()
 
@@ -80,20 +77,20 @@ def compPurity(hits, components):
         compPidsz = compPids[compPids != 0]
 
         if len(compPidsz) == 0:
-            dommyPid = 0
-            dommyCount = 0
+            domPid = 0
+            domCount = 0
             purity = 0.0
         else:
             counts = Counter(compPidsz)
-            dommyPid, dommyCount = counts.most_common(1)[0]
-            purity = dommyCount / len(i)
+            domPid, domCount = counts.most_common(1)[0]
+            purity = domCount / len(i)
 
-        purityInfo.append({"size": len(i), "dominant particle": int(dommyPid), "dominant count": dommyCount, "purity": float(purity)})
+        purityInfo.append({"size": len(i), "dominant particle": int(domPid), "dominant count": domCount, "purity": float(purity)})
     return purityInfo
 
 def synPurity(purityInfo):
     if purityInfo is None or len(purityInfo) == 0:
-        print("'Tis emppty my friends.")
+        print("No components found.")
         return {
         "Number of Components": 0,
         "Average Purity": 0.0,
@@ -155,11 +152,18 @@ def sweepResults(results):
             f"{i['Purity == 1.00']:7.3f} | "
     )
 
-def bestThreshold(results, metric="Average Purity", min_components=1):
+def bestThreshold(results, min_components=1):
     valid = [j for j in results if j["Number of Components"] >= min_components]
     if not valid:
         return None
-    return max(valid, key=lambda r: r[metric])
+
+    for i in valid:
+        i["score"] = (
+            i["Average Purity"]
+            *np.log1p(i["Average Track Size"])
+            * np.log1p(i["Number of Components"])
+        )
+    return max(valid, key=lambda r: r["score"])
 
 def sweepMetric(results, metric, title):
     thresholds = [i["threshold"] for i in results]
@@ -217,7 +221,7 @@ def main():
     results = trackConstruct(hits, eIndex, probs, thresholds, minSize)
 
     sweepResults(results)
-    best = bestThreshold(results, metric="Average Track Size", min_components=1)
+    best = bestThreshold(results, min_components=5)
 
     print("\nSelected Threshold")
     print(f"threshold={best['threshold']:.2f}")
@@ -226,6 +230,7 @@ def main():
     print(f"avg_purity={best['Average Purity']:.3f}")
     print(f"median_purity={best['Median Purity']:.3f}")
     print(f"avg_size={best['Average Track Size']:.2f}")
+    print(f"score = {best['score']:.3f}")
 
     sweepMetric(results, "Average Purity", "Average Track Purity Against Threshold")
     sweepMetric(results, "Number of Components", "Number of Components Against Threshold")
@@ -233,7 +238,7 @@ def main():
 
     plotRaw(hits, title=f"Raw Hits | {eventId}")
     predEdges(hits, best['chosenEdges'],title=f"Predicted Edges | threshold={best['threshold']}")
-    plotCompnents(hits, best['components'], title=f"Connected Components | threshold={best['threshold']}")
+    plotComponents(hits, best['components'], title=f"Connected Components | threshold={best['threshold']}")
 
 if __name__ == "__main__":
     main()
