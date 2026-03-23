@@ -38,7 +38,7 @@ def buildEventData(event_id, sample_hits, data_path, graph_conf, device, seed):
         return None, f"Skipping {event_id}: No positive edges"
 
     pos_ratio = float(np.mean(eLabels))
-    msg = f"{event_id}: edges={len(eLabels)} pos={pos} pos_ration={pos_ratio:.6f}"
+    msg = f"{event_id}: edges={len(eLabels)} pos={pos} pos_ratio={pos_ratio:.6f}"
 
     data = BuildData(hits, eIndex, eLabels, eAttributes).to(device)
     return {"hits": hits, "data": data, "edge_index": eIndex}, msg
