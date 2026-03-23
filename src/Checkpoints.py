@@ -7,6 +7,9 @@ def saveCheckpoint(
         graph_conf,
         train_events,
         val_events,
+        sample_hits,
+        seed,
+        hidden_channel,
         edge_attr_mean,
         edge_attr_std
 ):
@@ -20,6 +23,9 @@ def saveCheckpoint(
              "f1": best['f1'],
              "best_threshold": best['threshold'],
              "graph_conf": graph_conf,
+             "SampleHitsPerEvent": sample_hits,
+             "seed": seed,
+             "HiddenChannel": hidden_channel,
              "edge_attr_std": edge_attr_std.cpu(),
              "edge_attr_mean": edge_attr_mean.cpu()
              },
