@@ -58,9 +58,9 @@ def main():
     model_path.parent.mkdir(parents=True, exist_ok=True)
 
     conf = {
-    "NumTrainEvents": 100,
-    "NumValEvents": 100,
-    "SampleHitsPerEvent": 5000,
+    "NumTrainEvents": 400,
+    "NumValEvents": 400,
+    "SampleHitsPerEvent": 25000,
     "epochs": 100,
     "LR": 5e-4,
     "HardFrac": 0.3,
