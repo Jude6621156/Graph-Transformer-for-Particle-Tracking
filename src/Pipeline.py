@@ -54,37 +54,42 @@ def applyEdgeNorm(items, mean, std):
         data = i["data"]
         data.edge_attr = (data.edge_attr - mean.to(data.edge_attr.device)) / std.to(data.edge_attr.device)
 
-@torch.no_grad()
-def EvalEdges(model, data, threshold = 0.5):
-    model.eval()
-
-    yTrues = []
-    yPreds = []
-
-    for j in data:
-        data = j["data"]
-        logits = model(data.x, data.edge_index, data.edge_attr).squeeze(-1)
-        prob = torch.sigmoid_(logits)
-
-        yPred = (prob>=threshold).cpu().numpy().astype(int)
-        yTrue = data.y.cpu().numpy().astype(int)
-
-        yTrues.append(yTrue)
-        yPreds.append(yPred)
-
-    yTrues = np.concatenate(yTrues)
-    yPreds = np.concatenate(yPreds)
-
-    prec = precision_score(yTrues, yPreds, zero_division=0)
-    rec = recall_score(yTrues, yPreds, zero_division=0)
-    f1 = f1_score(yTrues, yPreds, zero_division=0)
-
-    return prec, rec, f1
-
 def sweepThresholds(model, data, thresholds):
+    probs, labels = getValProbs(model, data)
+
     best = {"f1": -1.0, "precision": 0.0, "recall": 0.0, "threshold": 0.5}
     for t in thresholds:
-        prec, rec, f1 = EvalEdges(model, data, threshold=t)
+        prec, rec, f1 = EvalEdges(labels, probs, threshold=t)
         if f1 > best['f1']:
             best = {"f1": f1, "precision": prec, "recall": rec, "threshold": t}
     return best
+
+@torch.no_grad()
+def getValProbs(model, data):
+    model.eval()
+
+    probs = []
+    labels = []
+
+    for j in data:
+        d = j["data"]
+        logits = model(d.x, d.edge_index, d.edge_attr).squeeze(-1)
+        prob = torch.sigmoid(logits).cpu().numpy()
+        label = d.y.cpu().numpy()
+
+        probs.append(prob)
+        labels.append(label)
+
+    probs = np.concatenate(probs)
+    labels = np.concatenate(labels)
+
+    return probs, labels
+
+def EvalEdges(labels, probs, threshold=0.5):
+    preds = (probs >= threshold).astype(int)
+
+    prec = precision_score(labels, preds, zero_division=0)
+    rec = recall_score(labels, preds, zero_division=0)
+    f1 = f1_score(labels, preds, zero_division=0)
+
+    return prec, rec, f1

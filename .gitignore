@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# OS files
+.DS_Store
+Thumbs.db
+.idea/
+
+# Data
+Data/
+
+# Results/ outputs
+/Results/
+*.pt
+*.png
+
+# Jupyter
+/Notebooks/
+*.ipynb
