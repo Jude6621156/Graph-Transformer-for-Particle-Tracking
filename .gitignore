@@ -25,4 +25,4 @@ Data/
 # Jupyter
 Notebooks/
 *.ipynb
-
+/Notebooks/.ipynb_checkpoints/
