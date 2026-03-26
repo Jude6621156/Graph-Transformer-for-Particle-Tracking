@@ -23,5 +23,6 @@ Data/
 *.png
 
 # Jupyter
-/Notebooks/
+Notebooks/
 *.ipynb
+
