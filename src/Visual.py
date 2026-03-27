@@ -134,22 +134,22 @@ def trackConstruct(hits, eIndex, eProbs, thresholds, minSize=2):
     return results
 
 def sweepResults(results):
-    print("\nThreshold Sweep")
+    print("\nThreshold Sweep\n")
     print(
-        f"{'threshold':>6} | {'edges':>7} | {'comps':>7} | {'avgPurity'} | "
-        f"{'medianPurity':>7} | {'avgSize':>7} | {'p>=0.8':>7} | {'p=1.0':>7}"
+        "\x1B[4m"+(f"{'threshold':>6} | {'edges':>7}   | {'comps':>7}   | {'avgPurity'} | "
+        f"{'medPurity':>7} | {'avgSize':>7}   | {'p>=0.8':>7}   | {'p=1.0':>7}   |"+"\x1B[0m")
     )
     for i in results:
         print(
-            f"{i['threshold']:6.2f} | "
-            f"{i['kept_edges']:7d} | "
-            f"{i['Number of Components']:7d} | "
-            f"{i['Average Purity']:7.3f} | "
-            f"{i['Median Purity']:7.3f} | "
-            f"{i['Average Track Size']:7.2f} | "
+            f"{i['threshold']:6.2f}    |   "
+            f"{i['kept_edges']:7d} |   "
+            f"{i['Number of Components']:7d} |   "
+            f"{i['Average Purity']:7.3f} |   "
+            f"{i['Median Purity']:7.3f} |   "
+            f"{i['Average Track Size']:7.2f} |   "
             #f"{i['Purity >= 0.50']}"
-            f"{i['Purity >= 0.80']:7.3f} | "
-            f"{i['Purity == 1.00']:7.3f} | "
+            f"{i['Purity >= 0.80']:7.3f} |   "
+            f"{i['Purity == 1.00']:7.3f} |   "
     )
 
 def bestThreshold(results, min_components=1):
