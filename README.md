@@ -53,3 +53,8 @@ A GNN is trained to classify whether two hits are connected and belong to the sa
 - Remaining edges are grouped using connected components.
 - Each component represents a connected track.
 
+
+## Results
+
+### Precision-Recall Graph
+![Figure_7.png](images%2FFigure_72.png)
