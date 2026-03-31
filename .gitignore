@@ -20,7 +20,6 @@ Data/
 # Results/ outputs
 /Results/
 *.pt
-*.png
 
 # Jupyter
 Notebooks/
