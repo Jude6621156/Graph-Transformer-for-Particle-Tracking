@@ -1,5 +1,6 @@
 import torch
 
+# Saves learned weights and input data from training for visualisation and evaluation
 def saveCheckpoint(
         model_path,
         model,
@@ -32,5 +33,6 @@ def saveCheckpoint(
             model_path
     )
 
+# loads saved checkpoint
 def loadCheckpoint(model_path, device):
     return torch.load(model_path, map_location=device, weights_only=False)
