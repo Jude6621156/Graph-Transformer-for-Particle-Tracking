@@ -14,7 +14,8 @@ This project aims to:
 ---
 
 ## Dataset
-The dataset is not included in the repository and can be found here: https://www.kaggle.com/competitions/trackml-particle-identification/data
+The dataset is not included in the repository and can be found here: 
+https://www.kaggle.com/competitions/trackml-particle-identification/data
 
 The project expects TrackML event data under:
 
@@ -28,33 +29,60 @@ Each event consists of 4 files:
 - *-truth.csv
 - *-cells.csv
 
+---
 
 ## Pipeline
 
 ### Load Events
-Each event group is loaded into a pandas DataFrame containing detector hit information.
+Each event is loaded into a pandas DataFrame containing detector hit information.
 
 ### Building a Candidate Graph
-Each dataframe is now converted into a graph as follows:
+Each event is converted into a graph where:
 - Nodes represent detector hits
-- Edges represent plausible connections between two hits
-- Constructed using **k-nearest neighbors (kNN)** in cylindrical space.
-- Uses physics informed constraints such as:
+- Edges represent plausible connections between hits
+
+Edges are constructed using **k-nearest neighbors**(kNN) in cylindrical coordinate space, with additional physics informed constraints such as:
   - layer proximity
   - angular difference
-  - slope
+  - gradient (Δz/ Δr) 
+This reduces search space while keeping physically plausible connections. 
 
 ### Training the GNN Edge Classifier
 A GNN is trained to classify whether two hits are connected and belong to the same particle track.
 
-### Reconstructing Track Candidates
-- Edges are assigned predictions on how likely it is that they form a track
-- A threshold is applied
-- Remaining edges are grouped using connected components.
-- Each component represents a connected track.
+Node representations are learned by message passing.
+Edge classification is performed using a multilayer perceptron on:
+- node embeddings
+- engineered geometric edge features
 
+---
+
+### Reconstructing Track Candidates
+- Edges are each assigned a probability on how likely it is that they form a track
+- A threshold is applied to select likely connections
+- Remaining edges are grouped using **connected components**
+- Each component represents a reconstructed track
+
+---
 
 ## Results
+In the current configuration, validation edge classification F1 exceeds 0.9 after roughly 60-70 epochs.
+
+As for reconstructed tracks there is a trade-off between:
+- **Track Purity** (Accuracy of reconstructed tracks)
+- **Track Continuity** (length and completeness of tracks)
+ 
+Lower thresholds produce longer but noisier tracks, while higher thresholds produce shorter but cleaner track fragments, as can be seen below:
+
+![img.png](images%2Fimg.png)
 
 ### Precision-Recall Graph
+Shows precision measured against recall
+
 ![Figure_7.png](images%2FFigure_72.png)
+
+### Track Purity
+Track purity at different thresholds
+
+![Figure_8.png](images%2FFigure_8.png)
+
